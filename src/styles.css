@@ -71,6 +71,79 @@ button:hover { background: #fff; }
 button:disabled { opacity: .5; cursor: progress; }
 .hint { color: var(--muted); font-size: .85em; margin-top: .6em; }
 
+/* Quick-pick example chips under the URL input. */
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4em;
+  margin-top: .85em;
+}
+.examples-label {
+  color: var(--muted);
+  font-size: .85em;
+  margin-right: .2em;
+}
+button.chip {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: .25em .85em;
+  border-radius: 999px;
+  font: inherit;
+  font-size: .85em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+button.chip:hover {
+  background: var(--panel);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Component card — the "inspector" surface. */
+.component-card .card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 1em 1.15em;
+}
+.card-source {
+  color: var(--accent);
+  font-weight: 600;
+  word-break: break-all;
+  margin-bottom: .9em;
+  font-size: .95em;
+}
+.card-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: .35em 1.2em;
+  margin: 0;
+}
+.card-facts dt {
+  color: var(--muted);
+  font-size: .8em;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  align-self: center;
+}
+.card-facts dd {
+  margin: 0;
+  font-size: .92em;
+  word-break: break-all;
+}
+.card-hash {
+  cursor: pointer;
+  user-select: text;
+}
+.card-hash .hash-short { color: var(--ok); }
+.card-hash .hash-full { color: var(--ok); display: none; }
+.card-hash.expanded .hash-short { display: none; }
+.card-hash.expanded .hash-full { display: inline; }
+
 ul#tool-list { list-style: none; padding: 0; margin: 0; }
 ul#tool-list li {
   background: var(--panel);
@@ -147,6 +220,39 @@ ul#tool-list li {
 
 .chat-form { display: flex; gap: .5em; }
 .chat-form input { flex: 1; }
+
+/* LLM as a collapsed <details> — secondary to the inspector flow. */
+.llm-details {
+  margin-bottom: 2.5em;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .6em 1em;
+}
+.llm-details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .6em;
+  padding: .3em 0;
+  font-size: .92em;
+  user-select: none;
+}
+.llm-details > summary::-webkit-details-marker { display: none; }
+.llm-details > summary::before {
+  content: '▸';
+  color: var(--muted);
+  width: 1em;
+  display: inline-block;
+  transition: transform .15s ease;
+}
+.llm-details[open] > summary::before { transform: rotate(90deg); }
+.llm-details > summary:hover { color: var(--accent); }
+.llm-summary-title { font-weight: 500; }
+.llm-summary-hint { color: var(--muted); font-size: .85em; }
+.llm-body { margin-top: 1em; }
 
 #llm-status { display: flex; align-items: center; gap: 1em; flex-wrap: wrap; }
 #llm-status-text { font-size: .85em; }

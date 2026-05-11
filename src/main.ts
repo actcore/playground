@@ -43,6 +43,11 @@ const toolsSection = document.getElementById('tools') as HTMLElement;
 const toolListEl = document.getElementById('tool-list') as HTMLUListElement;
 const urlInput = document.getElementById('tool-url') as HTMLInputElement;
 const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
+const cardSection = document.getElementById('component-card') as HTMLElement;
+const cardSourceEl = document.getElementById('card-source') as HTMLElement;
+const cardSizeEl = document.getElementById('card-size') as HTMLElement;
+const cardShaEl = document.getElementById('card-sha256') as HTMLElement;
+const cardToolCountEl = document.getElementById('card-tool-count') as HTMLElement;
 
 function log(msg: string, level: 'info' | 'ok' | 'err' = 'info') {
   const cls = level === 'ok' ? 'ok' : level === 'err' ? 'err' : 'dim';
@@ -71,6 +76,10 @@ function sanitizeName(source: string): string {
 }
 
 async function loadFromBytes(bytes: Uint8Array, source: string) {
+  loaded.length = 0;
+  renderToolList();
+  await renderComponentCard(bytes, source);
+
   log(`instantiating ${bytes.length}-byte component…`);
   const { toolProvider } = await runComponent(bytes, {
     name: sanitizeName(source),
@@ -84,8 +93,48 @@ async function loadFromBytes(bytes: Uint8Array, source: string) {
     loaded.push({ provider: toolProvider, def: t, source });
     log(`    • ${t.name}`);
   }
+  cardToolCountEl.textContent = String(resp.tools.length);
   renderToolList();
 }
+
+async function renderComponentCard(bytes: Uint8Array, source: string) {
+  cardSection.hidden = false;
+  cardSourceEl.textContent = source;
+  cardSizeEl.textContent = formatBytes(bytes.length);
+  cardToolCountEl.textContent = '…';
+
+  const hash = await sha256Hex(bytes);
+  const short = hash.slice(0, 12) + '…' + hash.slice(-8);
+  cardShaEl.classList.remove('expanded');
+  cardShaEl.innerHTML = `<span class="hash-short">sha256:${short}</span><span class="hash-full">sha256:${hash}</span>`;
+  cardShaEl.title = 'click to expand';
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(2)} MB`;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+document.querySelectorAll<HTMLButtonElement>('.examples .chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    const url = chip.dataset['url'];
+    if (!url) return;
+    urlInput.value = url;
+    loadBtn.click();
+  });
+});
+
+document.getElementById('card-sha256')?.addEventListener('click', (e) => {
+  (e.currentTarget as HTMLElement).classList.toggle('expanded');
+});
 
 function renderToolList() {
   toolsSection.hidden = loaded.length === 0;

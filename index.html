@@ -30,6 +30,13 @@
           value="oci://ghcr.io/actpkg/time:0.2.0">
         <button id="load-btn">Load</button>
       </div>
+      <div class="examples">
+        <span class="examples-label">Try:</span>
+        <button class="chip" type="button" data-url="oci://ghcr.io/actpkg/time:0.2.0">time</button>
+        <button class="chip" type="button" data-url="oci://ghcr.io/actpkg/random:0.2.0">random</button>
+        <button class="chip" type="button" data-url="oci://ghcr.io/actpkg/crypto:0.3.0">crypto</button>
+        <button class="chip" type="button" data-url="oci://ghcr.io/actpkg/encoding:0.2.0">encoding</button>
+      </div>
       <p class="hint">
         Supported: <code>oci://&lt;host&gt;/&lt;repo&gt;:&lt;tag&gt;</code> (via
         <a href="https://github.com/actcore/oci-cors-proxy">CORS proxy</a>) ·
@@ -38,32 +45,54 @@
       </p>
     </section>
 
+    <section id="component-card" class="component-card" hidden>
+      <h2>Component</h2>
+      <div class="card">
+        <div class="card-source" id="card-source"></div>
+        <dl class="card-facts">
+          <dt>Size</dt>
+          <dd id="card-size">—</dd>
+          <dt>SHA-256</dt>
+          <dd id="card-sha256" class="card-hash"><span class="hash-short">—</span></dd>
+          <dt>Tools</dt>
+          <dd id="card-tool-count">—</dd>
+          <dt>Capabilities</dt>
+          <dd id="card-capabilities" class="muted">not yet inspected · coming soon</dd>
+        </dl>
+      </div>
+    </section>
+
     <section id="tools" class="tools" hidden>
       <h2>Tools</h2>
       <ul id="tool-list"></ul>
-    </section>
-
-    <section id="llm" class="llm">
-      <h2>Local LLM</h2>
-      <div id="llm-status">
-        <button id="llm-load-btn">Load Llama-3.2-3B (~2 GB, one-time)</button>
-        <span id="llm-status-text" class="muted"></span>
-      </div>
-      <div id="chat" hidden>
-        <div id="messages" class="messages"></div>
-        <form id="chat-form" class="chat-form">
-          <input id="chat-input" type="text" autocomplete="off"
-                 placeholder="ask anything — e.g. 'what time is it now?'"
-                 disabled>
-          <button id="chat-send" type="submit" disabled>Send</button>
-        </form>
-      </div>
     </section>
 
     <section class="log">
       <h2>Log</h2>
       <pre id="log"></pre>
     </section>
+
+    <details id="llm" class="llm-details">
+      <summary>
+        <span class="llm-summary-title">Optionally, chat with these tools via a local LLM</span>
+        <span class="llm-summary-hint">Llama-3.2-3B · ~2 GB one-time download</span>
+      </summary>
+      <div class="llm-body">
+        <div id="llm-status">
+          <button id="llm-load-btn">Load Llama-3.2-3B (~2 GB, one-time)</button>
+          <span id="llm-status-text" class="muted"></span>
+        </div>
+        <div id="chat" hidden>
+          <div id="messages" class="messages"></div>
+          <form id="chat-form" class="chat-form">
+            <input id="chat-input" type="text" autocomplete="off"
+                   placeholder="ask anything — e.g. 'what time is it now?'"
+                   disabled>
+            <button id="chat-send" type="submit" disabled>Send</button>
+          </form>
+        </div>
+      </div>
+    </details>
 
     <footer>
       <p class="muted">
