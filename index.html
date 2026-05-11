@@ -67,32 +67,32 @@
       <ul id="tool-list"></ul>
     </section>
 
+    <section id="llm" class="llm">
+      <h2>Local LLM</h2>
+      <p class="llm-intro muted">
+        Load a 3B-parameter Llama in this tab (WebGPU, ~2 GB one-time download).
+        Ask a question — the LLM picks which loaded tool to call, the call runs
+        sandboxed in the same tab, and the result feeds back into the answer.
+      </p>
+      <div id="llm-status">
+        <button id="llm-load-btn">Load Llama-3.2-3B (~2 GB, one-time)</button>
+        <span id="llm-status-text" class="muted"></span>
+      </div>
+      <div id="chat" hidden>
+        <div id="messages" class="messages"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" type="text" autocomplete="off"
+                 placeholder="ask anything — e.g. 'what time is it now?'"
+                 disabled>
+          <button id="chat-send" type="submit" disabled>Send</button>
+        </form>
+      </div>
+    </section>
+
     <section class="log">
       <h2>Log</h2>
       <pre id="log"></pre>
     </section>
-
-    <details id="llm" class="llm-details">
-      <summary>
-        <span class="llm-summary-title">Optionally, chat with these tools via a local LLM</span>
-        <span class="llm-summary-hint">Llama-3.2-3B · ~2 GB one-time download</span>
-      </summary>
-      <div class="llm-body">
-        <div id="llm-status">
-          <button id="llm-load-btn">Load Llama-3.2-3B (~2 GB, one-time)</button>
-          <span id="llm-status-text" class="muted"></span>
-        </div>
-        <div id="chat" hidden>
-          <div id="messages" class="messages"></div>
-          <form id="chat-form" class="chat-form">
-            <input id="chat-input" type="text" autocomplete="off"
-                   placeholder="ask anything — e.g. 'what time is it now?'"
-                   disabled>
-            <button id="chat-send" type="submit" disabled>Send</button>
-          </form>
-        </div>
-      </div>
-    </details>
 
     <footer>
       <p class="muted">

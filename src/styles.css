@@ -308,38 +308,14 @@ ul#tool-list li {
 .chat-form { display: flex; gap: .5em; }
 .chat-form input { flex: 1; }
 
-/* LLM as a collapsed <details> — secondary to the inspector flow. */
-.llm-details {
-  margin-bottom: 2.5em;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: .6em 1em;
+/* Local LLM section — the agent-loop half of the wow. Not auto-loaded
+   (2 GB is a real cost), but presented as a first-class feature, not
+   a footnote. */
+.llm-intro {
+  font-size: .9em;
+  margin: 0 0 1em;
+  max-width: 60em;
 }
-.llm-details > summary {
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: .6em;
-  padding: .3em 0;
-  font-size: .92em;
-  user-select: none;
-}
-.llm-details > summary::-webkit-details-marker { display: none; }
-.llm-details > summary::before {
-  content: '▸';
-  color: var(--muted);
-  width: 1em;
-  display: inline-block;
-  transition: transform .15s ease;
-}
-.llm-details[open] > summary::before { transform: rotate(90deg); }
-.llm-details > summary:hover { color: var(--accent); }
-.llm-summary-title { font-weight: 500; }
-.llm-summary-hint { color: var(--muted); font-size: .85em; }
-.llm-body { margin-top: 1em; }
 
 #llm-status { display: flex; align-items: center; gap: 1em; flex-wrap: wrap; }
 #llm-status-text { font-size: .85em; }
