@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>playground.actcore.dev — wasm agent tools in your browser tab</title>
+  <meta name="description" content="Browser-native AI agent stack: local LLM (WebLLM) + sandboxed wasm tools (ACT), no server. Open a URL, run a tool, talk to a model — all in one tab.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0a0a'/%3E%3Ctext x='50%25' y='52%25' font-size='34' text-anchor='middle' fill='%23fafafa' font-family='ui-monospace,monospace'%3E%E2%96%B6%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <main id="app">
+    <header>
+      <h1>actcore <span class="muted">playground</span></h1>
+      <p class="lede">
+        Load a signed wasm tool from any URL, run it in this tab. No server, no Node, no install.
+      </p>
+    </header>
+
+    <section class="loader">
+      <label for="tool-url">Tool URL</label>
+      <div class="row">
+        <input
+          id="tool-url"
+          type="text"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+          placeholder="oci://ghcr.io/actpkg/time:0.2.0  or  https://example.com/tool.wasm"
+          value="oci://ghcr.io/actpkg/time:0.2.0">
+        <button id="load-btn">Load</button>
+      </div>
+      <p class="hint">
+        Supported: <code>oci://&lt;host&gt;/&lt;repo&gt;:&lt;tag&gt;</code> (via
+        <a href="https://github.com/actcore/oci-cors-proxy">CORS proxy</a>) ·
+        <code>https://...</code> (any CORS-permissive .wasm) ·
+        drop a <code>.wasm</code> file anywhere on this page
+      </p>
+    </section>
+
+    <section id="tools" class="tools" hidden>
+      <h2>Tools</h2>
+      <ul id="tool-list"></ul>
+    </section>
+
+    <section class="log">
+      <h2>Log</h2>
+      <pre id="log"></pre>
+    </section>
+
+    <footer>
+      <p class="muted">
+        <a href="https://github.com/actcore/host-browser">@actcore/host</a> ·
+        <a href="https://github.com/actcore/oci-cors-proxy">oci-cors-proxy</a> ·
+        <a href="https://actcore.dev">actcore.dev</a>
+      </p>
+    </footer>
+  </main>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
