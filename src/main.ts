@@ -1,4 +1,6 @@
 import './styles.css';
+import { loadLlm } from './webllm.js';
+import { runUserTurn, type ChatMessage, type LoadedTool } from './chat.js';
 
 // Lenient WebAssembly.compileStreaming — Chrome strict-MIME-checks rejects
 // some blob: URL responses despite their Content-Type, so fall back to the
@@ -15,7 +17,9 @@ import './styles.css';
         if (!/MIME|Content-Type/i.test(String((e as Error).message || e))) throw e;
         const resp = source instanceof Response ? source : await source;
         const buf = await resp.arrayBuffer();
-        return (WebAssembly as unknown as Record<string, (b: ArrayBuffer, i?: unknown) => Promise<unknown>>)[nonStreamingName](buf, imports);
+        const fn = (WebAssembly as unknown as Record<string, ((b: ArrayBuffer, i?: unknown) => Promise<unknown>) | undefined>)[nonStreamingName];
+        if (!fn) throw e;
+        return fn(buf, imports);
       }
     };
   };
@@ -23,7 +27,7 @@ import './styles.css';
   wrap('instantiateStreaming', 'instantiate');
 }
 
-import { runComponent, type ToolDefinition, type ToolProvider } from '@actcore/host';
+import { runComponent } from '@actcore/host';
 import { loadFromUrl, loadFromFile } from './url-loader.js';
 
 // Absolute URL of the preview2-shim browser bundle. In dev Vite serves
@@ -54,12 +58,6 @@ function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
-}
-
-interface LoadedTool {
-  provider: ToolProvider;
-  def: ToolDefinition;
-  source: string;
 }
 
 const loaded: LoadedTool[] = [];
@@ -176,6 +174,77 @@ document.addEventListener('drop', async (e) => {
   }
 });
 
+// === LLM (WebLLM Llama-3.2-1B) =============================================
+const llmLoadBtn = document.getElementById('llm-load-btn') as HTMLButtonElement;
+const llmStatusText = document.getElementById('llm-status-text') as HTMLSpanElement;
+const chatBox = document.getElementById('chat') as HTMLElement;
+const messagesEl = document.getElementById('messages') as HTMLElement;
+const chatForm = document.getElementById('chat-form') as HTMLFormElement;
+const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+const chatSend = document.getElementById('chat-send') as HTMLButtonElement;
+
+const conversation: ChatMessage[] = [];
+
+function renderMessage(m: ChatMessage) {
+  if (m.role === 'system') return;
+  const div = document.createElement('div');
+  div.className = 'msg';
+  let body = `<div class="msg-role ${m.role}">${m.role}</div>`;
+  if (m.content) body += `<div class="msg-content">${escapeHtml(m.content)}</div>`;
+  if (m.tool_calls) {
+    for (const tc of m.tool_calls) {
+      body += `<div class="msg-tool-call">→ <b>${escapeHtml(tc.function.name)}</b>(${escapeHtml(tc.function.arguments || '{}')})</div>`;
+    }
+  }
+  div.innerHTML = body;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+llmLoadBtn.addEventListener('click', async () => {
+  llmLoadBtn.disabled = true;
+  try {
+    await loadLlm((s) => {
+      llmStatusText.textContent = s.message;
+      if (s.state === 'ready') {
+        chatBox.hidden = false;
+        chatInput.disabled = false;
+        chatSend.disabled = false;
+        llmLoadBtn.hidden = true;
+        llmStatusText.textContent = 'Hermes-3-Llama-3.1-8B ready';
+        log('LLM ready', 'ok');
+      } else if (s.state === 'error') {
+        llmLoadBtn.disabled = false;
+        log('LLM load failed: ' + s.message, 'err');
+      }
+    });
+  } catch (e) {
+    llmLoadBtn.disabled = false;
+    log('LLM load failed: ' + (e as Error).message, 'err');
+  }
+});
+
+chatForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = chatInput.value.trim();
+  if (!text) return;
+  chatInput.value = '';
+  chatInput.disabled = true;
+  chatSend.disabled = true;
+  try {
+    await runUserTurn(conversation, text, loaded, {
+      onMessage: renderMessage,
+    });
+  } catch (err) {
+    log('chat error: ' + (err as Error).message, 'err');
+  } finally {
+    chatInput.disabled = false;
+    chatSend.disabled = false;
+    chatInput.focus();
+  }
+});
+
+// === JSPI gate =============================================================
 if (typeof (WebAssembly as unknown as { promising?: unknown }).promising !== 'function') {
   log(
     'This browser lacks WebAssembly.promising (JSPI). Use Chrome 137+, Edge, ' +

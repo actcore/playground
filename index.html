@@ -43,6 +43,23 @@
       <ul id="tool-list"></ul>
     </section>
 
+    <section id="llm" class="llm">
+      <h2>Local LLM</h2>
+      <div id="llm-status">
+        <button id="llm-load-btn">Load Hermes-3-Llama-3.1-8B (~6.5 GB, one-time)</button>
+        <span id="llm-status-text" class="muted"></span>
+      </div>
+      <div id="chat" hidden>
+        <div id="messages" class="messages"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" type="text" autocomplete="off"
+                 placeholder="ask anything — e.g. 'what time is it now?'"
+                 disabled>
+          <button id="chat-send" type="submit" disabled>Send</button>
+        </form>
+      </div>
+    </section>
+
     <section class="log">
       <h2>Log</h2>
       <pre id="log"></pre>

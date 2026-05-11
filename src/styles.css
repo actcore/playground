@@ -107,6 +107,50 @@ ul#tool-list li {
   color: var(--err);
 }
 
+.messages {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1em;
+  margin-bottom: .8em;
+  min-height: 6em;
+  max-height: 22em;
+  overflow-y: auto;
+}
+.messages:empty::before {
+  content: 'Conversation will appear here.';
+  color: var(--muted);
+  font-style: italic;
+}
+.msg { margin-bottom: 1em; }
+.msg:last-child { margin-bottom: 0; }
+.msg-role {
+  display: inline-block;
+  font-size: .75em;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+  margin-bottom: .25em;
+}
+.msg-role.user { color: var(--accent); }
+.msg-role.assistant { color: var(--ok); }
+.msg-role.tool { color: #c79; }
+.msg-content { white-space: pre-wrap; word-break: break-word; }
+.msg-tool-call {
+  background: #0d1419;
+  padding: .5em .75em;
+  border-left: 2px solid var(--accent);
+  margin: .4em 0;
+  font-size: .85em;
+  border-radius: 0 4px 4px 0;
+}
+
+.chat-form { display: flex; gap: .5em; }
+.chat-form input { flex: 1; }
+
+#llm-status { display: flex; align-items: center; gap: 1em; flex-wrap: wrap; }
+#llm-status-text { font-size: .85em; }
+
 pre#log {
   background: var(--panel);
   border: 1px solid var(--border);
