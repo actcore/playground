@@ -26,7 +26,6 @@ jobs:
         with:
           repository: actcore/host-browser
           path: host-browser
-          token: ${{ secrets.HOST_BROWSER_PAT }}
 
       - uses: actions/setup-node@v4
         with:
@@ -38,11 +37,13 @@ jobs:
           npm ci
           npm run build
 
+      - name: Install playground deps (resolves @actcore/host via file:../host-browser)
+        working-directory: playground
+        run: npm install
+
       - name: Build playground
         working-directory: playground
-        run: |
-          npm install
-          npm run build
+        run: npm run build
 
       - uses: actions/upload-pages-artifact@v3
         with:

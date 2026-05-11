@@ -8,6 +8,7 @@
   "author": "Alexander Shishenko <alex@shishenko.com>",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/copy-shims.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
