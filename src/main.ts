@@ -29,6 +29,7 @@ import { runUserTurn, type ChatMessage, type LoadedTool } from './chat.js';
 
 import { runComponent, resolveLocalizedString } from '@actcore/host';
 import { loadFromUrl, loadFromFile } from './url-loader.js';
+import { encodeCbor } from './cbor-mini.js';
 
 // Absolute URL of the preview2-shim browser bundle. In dev Vite serves
 // node_modules directly; for the production GH Pages build we copy the shim
@@ -136,27 +137,136 @@ document.getElementById('card-sha256')?.addEventListener('click', (e) => {
   (e.currentTarget as HTMLElement).classList.toggle('expanded');
 });
 
+interface ParsedSchema {
+  raw: unknown;
+  properties: Record<string, JsonSchemaProperty>;
+  required: Set<string>;
+}
+
+interface JsonSchemaProperty {
+  type?: string | string[];
+  description?: string;
+  enum?: unknown[];
+  default?: unknown;
+  format?: string;
+  items?: unknown;
+}
+
+function parseSchema(schemaStr: string): ParsedSchema {
+  let raw: unknown = {};
+  if (schemaStr && schemaStr.trim()) {
+    try { raw = JSON.parse(schemaStr); } catch { raw = {}; }
+  }
+  const obj = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const props = (obj['properties'] && typeof obj['properties'] === 'object')
+    ? obj['properties'] as Record<string, JsonSchemaProperty>
+    : {};
+  const required = new Set(Array.isArray(obj['required']) ? obj['required'] as string[] : []);
+  return { raw, properties: props, required };
+}
+
+function renderArgInput(name: string, spec: JsonSchemaProperty, isRequired: boolean): string {
+  const t = Array.isArray(spec.type) ? spec.type[0] : spec.type;
+  const desc = spec.description ? escapeHtml(spec.description) : '';
+  const req = isRequired ? ' required' : '';
+  const reqMark = isRequired ? '<span class="req">*</span>' : '';
+  const label = `<label class="arg-label" for="arg-${escapeHtml(name)}">${escapeHtml(name)}${reqMark}<span class="arg-type muted"> · ${escapeHtml(String(t ?? 'any'))}</span></label>`;
+  const help = desc ? `<div class="arg-desc muted">${desc}</div>` : '';
+
+  if (Array.isArray(spec.enum) && spec.enum.length > 0) {
+    const opts = spec.enum.map((v) => {
+      const s = String(v);
+      const sel = spec.default !== undefined && String(spec.default) === s ? ' selected' : '';
+      return `<option value="${escapeHtml(s)}"${sel}>${escapeHtml(s)}</option>`;
+    }).join('');
+    const placeholderOpt = isRequired ? '' : `<option value="">(omit)</option>`;
+    return `<div class="arg-field" data-name="${escapeHtml(name)}" data-kind="enum">${label}${help}<select name="${escapeHtml(name)}" id="arg-${escapeHtml(name)}"${req}>${placeholderOpt}${opts}</select></div>`;
+  }
+
+  if (t === 'boolean') {
+    const checked = spec.default === true ? ' checked' : '';
+    return `<div class="arg-field arg-field-bool" data-name="${escapeHtml(name)}" data-kind="boolean">${label}${help}<input type="checkbox" name="${escapeHtml(name)}" id="arg-${escapeHtml(name)}"${checked}></div>`;
+  }
+
+  if (t === 'integer' || t === 'number') {
+    const step = t === 'integer' ? ' step="1"' : ' step="any"';
+    const dflt = spec.default !== undefined ? ` value="${escapeHtml(String(spec.default))}"` : '';
+    return `<div class="arg-field" data-name="${escapeHtml(name)}" data-kind="${t}">${label}${help}<input type="number"${step} name="${escapeHtml(name)}" id="arg-${escapeHtml(name)}"${dflt}${req}></div>`;
+  }
+
+  if (t === 'array' || t === 'object') {
+    const dflt = spec.default !== undefined ? escapeHtml(JSON.stringify(spec.default, null, 2)) : '';
+    const ph = t === 'array' ? '[ ]' : '{ }';
+    return `<div class="arg-field" data-name="${escapeHtml(name)}" data-kind="${t}">${label}${help}<textarea name="${escapeHtml(name)}" id="arg-${escapeHtml(name)}" rows="3" placeholder="${ph} (JSON)" spellcheck="false"${req}>${dflt}</textarea></div>`;
+  }
+
+  // string and fallback
+  const dflt = spec.default !== undefined ? ` value="${escapeHtml(String(spec.default))}"` : '';
+  const placeholder = spec.format ? ` placeholder="${escapeHtml(spec.format)}"` : '';
+  return `<div class="arg-field" data-name="${escapeHtml(name)}" data-kind="string">${label}${help}<input type="text" name="${escapeHtml(name)}" id="arg-${escapeHtml(name)}"${placeholder}${dflt} spellcheck="false" autocomplete="off"${req}></div>`;
+}
+
+function collectFormValues(form: HTMLFormElement): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const field of form.querySelectorAll<HTMLElement>('.arg-field')) {
+    const name = field.dataset['name']!;
+    const kind = field.dataset['kind']!;
+    const input = field.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input,textarea,select')!;
+    if (kind === 'boolean') {
+      out[name] = (input as HTMLInputElement).checked;
+      continue;
+    }
+    const raw = input.value;
+    if (raw === '' && !input.hasAttribute('required')) continue;
+    if (kind === 'integer') out[name] = parseInt(raw, 10);
+    else if (kind === 'number') out[name] = Number(raw);
+    else if (kind === 'array' || kind === 'object') {
+      try { out[name] = JSON.parse(raw); }
+      catch (e) { throw new Error(`${name}: invalid JSON — ${(e as Error).message}`); }
+    }
+    else out[name] = raw;
+  }
+  return out;
+}
+
 function renderToolList() {
   toolsSection.hidden = loaded.length === 0;
   toolListEl.innerHTML = '';
   loaded.forEach((t, i) => {
     const desc = resolveLocalizedString(t.def.description);
+    const schema = parseSchema(t.def.parametersSchema);
+    const propNames = Object.keys(schema.properties);
+    const hasProps = propNames.length > 0;
+    const schemaJson = t.def.parametersSchema ? escapeHtml(t.def.parametersSchema) : '';
+
+    let runUI: string;
+    if (hasProps) {
+      const fields = propNames
+        .map((n) => renderArgInput(n, schema.properties[n]!, schema.required.has(n)))
+        .join('');
+      runUI = `<form class="tool-args" data-i="${i}">${fields}<button type="submit" class="tool-run">Run</button></form>`;
+    } else {
+      runUI = `<button class="tool-run tool-run-empty" data-i="${i}">Run with empty args</button>`;
+    }
+
+    const schemaDetails = schemaJson
+      ? `<details class="schema-details"><summary>view schema</summary><pre class="schema-pre">${schemaJson}</pre></details>`
+      : '';
+
     const li = document.createElement('li');
     li.innerHTML = `
       <div><span class="tool-name">${escapeHtml(t.def.name)}</span>
         <span class="muted"> · from ${escapeHtml(t.source)}</span></div>
       <div class="tool-desc">${escapeHtml(desc)}</div>
-      <button class="tool-run" data-i="${i}">Run with empty args</button>
+      ${schemaDetails}
+      ${runUI}
       <div class="tool-result" data-result="${i}" hidden></div>
     `;
     toolListEl.appendChild(li);
   });
 }
 
-toolListEl.addEventListener('click', async (e) => {
-  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button.tool-run');
-  if (!btn) return;
-  const i = Number(btn.dataset['i']);
+async function runTool(i: number, args: Record<string, unknown>): Promise<void> {
   const t = loaded[i];
   if (!t) return;
   const resultEl = toolListEl.querySelector<HTMLElement>(`[data-result="${i}"]`);
@@ -164,12 +274,12 @@ toolListEl.addEventListener('click', async (e) => {
   resultEl.hidden = false;
   resultEl.classList.remove('err');
   resultEl.textContent = 'running…';
-  log(`calling ${t.def.name}({}) · from ${t.source}`);
+  const argsPreview = Object.keys(args).length === 0 ? '{}' : JSON.stringify(args);
+  log(`calling ${t.def.name}(${argsPreview}) · from ${t.source}`);
   const t0 = performance.now();
   try {
-    // CBOR null map: 0xa0
-    const args = new Uint8Array([0xa0]);
-    const result = await t.provider.callTool(t.def.name, args, []);
+    const argBytes = encodeCbor(args);
+    const result = await t.provider.callTool(t.def.name, argBytes, []);
     const ms = Math.round(performance.now() - t0);
     if (result.tag === 'immediate') {
       const parts: string[] = [];
@@ -192,6 +302,7 @@ toolListEl.addEventListener('click', async (e) => {
       }
       resultEl.textContent = parts.join('\n');
       if (errEv) {
+        resultEl.classList.add('err');
         log(`  ✗ ${t.def.name} → ${errEv} (${ms} ms)`, 'err');
       } else {
         log(`  → ${t.def.name} returned ${result.val.length} event${result.val.length === 1 ? '' : 's'} (${ms} ms)`, 'ok');
@@ -207,6 +318,34 @@ toolListEl.addEventListener('click', async (e) => {
     resultEl.textContent = msg;
     log(`  ✗ ${t.def.name} threw: ${msg} (${ms} ms)`, 'err');
   }
+}
+
+toolListEl.addEventListener('click', async (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button.tool-run-empty');
+  if (!btn) return;
+  const i = Number(btn.dataset['i']);
+  await runTool(i, {});
+});
+
+toolListEl.addEventListener('submit', async (e) => {
+  const form = (e.target as HTMLElement).closest<HTMLFormElement>('form.tool-args');
+  if (!form) return;
+  e.preventDefault();
+  const i = Number(form.dataset['i']);
+  let args: Record<string, unknown>;
+  try {
+    args = collectFormValues(form);
+  } catch (err) {
+    const i2 = Number(form.dataset['i']);
+    const resultEl = toolListEl.querySelector<HTMLElement>(`[data-result="${i2}"]`);
+    if (resultEl) {
+      resultEl.hidden = false;
+      resultEl.classList.add('err');
+      resultEl.textContent = String((err as Error).message || err);
+    }
+    return;
+  }
+  await runTool(i, args);
 });
 
 loadBtn.addEventListener('click', async () => {

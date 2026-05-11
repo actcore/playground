@@ -164,6 +164,93 @@ ul#tool-list li {
   border-radius: 4px;
 }
 .tool-run:hover { background: var(--accent); color: var(--bg); }
+
+/* Per-tool argument form derived from JSON Schema. */
+.tool-args {
+  display: grid;
+  gap: .65em;
+  margin: .25em 0 .15em;
+}
+.tool-args .tool-run {
+  justify-self: start;
+  margin-top: .2em;
+}
+.arg-field {
+  display: flex;
+  flex-direction: column;
+  gap: .25em;
+}
+.arg-field-bool {
+  flex-direction: row;
+  align-items: center;
+  gap: .6em;
+}
+.arg-field-bool .arg-label { order: 1; }
+.arg-field-bool input[type=checkbox] { order: 0; width: 1.05em; height: 1.05em; accent-color: var(--accent); }
+.arg-label {
+  font-size: .82em;
+  color: var(--fg);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.arg-type { font-weight: normal; margin-left: .35em; }
+.arg-desc { font-size: .8em; margin-top: -.1em; }
+.arg-field input[type=text],
+.arg-field input[type=number],
+.arg-field select,
+.arg-field textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: .45em .65em;
+  border-radius: 4px;
+  font: inherit;
+  font-size: .9em;
+}
+.arg-field textarea {
+  resize: vertical;
+  min-height: 4em;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+}
+.arg-field input:focus,
+.arg-field select:focus,
+.arg-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.req { color: var(--err); margin-left: .15em; }
+
+.schema-details {
+  margin: .35em 0 .55em;
+  font-size: .82em;
+}
+.schema-details > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+  user-select: none;
+  display: inline-block;
+}
+.schema-details > summary::-webkit-details-marker { display: none; }
+.schema-details > summary::before {
+  content: '▸ ';
+  color: var(--muted);
+  transition: transform .15s ease;
+  display: inline-block;
+}
+.schema-details[open] > summary::before { transform: rotate(90deg); }
+.schema-details > summary:hover { color: var(--accent); }
+.schema-pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: .65em .85em;
+  margin: .4em 0 0;
+  font-size: .85em;
+  overflow-x: auto;
+  white-space: pre;
+}
+
 .tool-result {
   margin-top: .7em;
   padding: .65em .85em;
