@@ -1,11 +1,23 @@
 /**
- * Chat-loop wiring between Llama (via WebLLM) and the loaded ACT tools.
+ * Chat loop with prompt-based tool dispatch.
  *
- * Translation layer between two type systems:
- *   - OpenAI tool-call shape (what Llama emits) — JSON args
- *   - ACT tool-provider shape — CBOR args, list<tool-event> results
+ * Rather than relying on WebLLM's hardcoded ChatCompletionRequest.tools
+ * support (which is limited to a short list of Hermes-fine-tuned 8B models
+ * and uses a brittle JSON parser), we embed the available tools directly in
+ * the system prompt and instruct the model to emit a structured
+ * `<tool_call name="X">{...}</tool_call>` block when it wants to call one.
+ *
+ * Round-trip:
+ *   1. We send: system + history + user.
+ *   2. Model replies. We scan the reply for `<tool_call>` blocks.
+ *   3. For each block, we invoke the matching ACT tool, append a
+ *      `Tool result: ...` follow-up as the next user turn.
+ *   4. Re-prompt the model with the augmented history.
+ *   5. Loop until reply has no tool_call (final answer) or hop cap.
+ *
+ * This works with any instruction-tuned model (Llama-3.2-1B and up). No
+ * dependency on WebLLM's tool-list and no fragility around output format.
  */
-import type { ChatCompletionTool } from '@mlc-ai/web-llm';
 import type { ToolProvider, ToolDefinition } from '@actcore/host';
 import { encodeCbor } from './cbor-mini.js';
 import { getEngine } from './webllm.js';
@@ -16,45 +28,70 @@ export interface LoadedTool {
   source: string;
 }
 
-export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
+export type ChatRole = 'system' | 'user' | 'assistant';
 
 export interface ChatMessage {
   role: ChatRole;
   content: string;
-  tool_call_id?: string;
-  tool_calls?: Array<{
-    id: string;
-    type: 'function';
-    function: { name: string; arguments: string };
-  }>;
+  /** Parsed tool calls extracted from an assistant message (for UI). */
+  tool_calls?: Array<{ name: string; arguments: string }>;
 }
 
-const SYSTEM_PROMPT =
+const BASE_INSTRUCTIONS =
   'You are a helpful assistant running locally in the user\'s browser tab. ' +
-  'When the user asks something that requires a tool, call the appropriate tool. ' +
-  'Always cite the tool result you got back. Keep replies short.';
+  'You have NO knowledge of the current time, the current date, files, ' +
+  'network state, or anything outside this conversation — your training data ' +
+  'is also stale and must not be trusted for "now". The ONLY way to get fresh ' +
+  'information is to call one of the tools below.';
 
-export function buildToolList(loaded: LoadedTool[]): ChatCompletionTool[] {
-  return loaded.map((t) => {
+const TOOL_FORMAT = [
+  '',
+  'When you need to call a tool, emit EXACTLY this block and nothing else on ' +
+    'that line:',
+  '',
+  '  <tool_call name="TOOL_NAME">{"arg1": value1, "arg2": value2}</tool_call>',
+  '',
+  'Rules:',
+  '  - The JSON inside MUST be valid (double-quoted keys and strings).',
+  '  - Use `{}` if the tool takes no arguments.',
+  '  - After you emit a tool_call, STOP — do not continue with prose. The ' +
+    'system will run the tool and feed the result back to you in the next ' +
+    'turn, then you can produce your final reply quoting that result.',
+  '  - Never invent or guess a result. If a tool fails or no relevant tool ' +
+    'exists, say so plainly.',
+].join('\n');
+
+function describeTools(loaded: LoadedTool[]): string {
+  if (loaded.length === 0) return 'No tools are currently loaded.';
+  const lines: string[] = ['Available tools:'];
+  for (const t of loaded) {
     const desc =
       t.def.description.tag === 'plain'
         ? t.def.description.val
-        : t.def.description.val[0]?.[1] ?? t.def.name;
-    let parameters: Record<string, unknown>;
-    try {
-      parameters = JSON.parse(t.def.parametersSchema);
-    } catch {
-      parameters = { type: 'object', properties: {} };
-    }
-    return {
-      type: 'function',
-      function: {
-        name: t.def.name,
-        description: desc,
-        parameters,
-      },
-    };
-  });
+        : t.def.description.val[0]?.[1] ?? '(no description)';
+    let schema = t.def.parametersSchema;
+    if (schema.length > 600) schema = schema.slice(0, 600) + '…';
+    lines.push(`- name: ${t.def.name}`);
+    lines.push(`  description: ${desc}`);
+    lines.push(`  parameters (JSON Schema): ${schema}`);
+  }
+  return lines.join('\n');
+}
+
+function buildSystemPrompt(loaded: LoadedTool[]): string {
+  return [BASE_INSTRUCTIONS, '', describeTools(loaded), TOOL_FORMAT].join('\n');
+}
+
+const TOOL_CALL_REGEX = /<tool_call\s+name="([^"]+)"\s*>\s*([\s\S]*?)\s*<\/tool_call>/g;
+
+function extractToolCalls(
+  text: string,
+): Array<{ name: string; arguments: string }> {
+  const out: Array<{ name: string; arguments: string }> = [];
+  for (const m of text.matchAll(TOOL_CALL_REGEX)) {
+    out.push({ name: m[1]!, arguments: m[2]! });
+  }
+  return out;
 }
 
 async function invokeTool(
@@ -63,18 +100,20 @@ async function invokeTool(
   jsonArgs: string,
 ): Promise<string> {
   const tool = loaded.find((t) => t.def.name === name);
-  if (!tool) return `error: tool "${name}" not loaded`;
+  if (!tool) return `Error: tool "${name}" is not loaded.`;
   let parsedArgs: unknown = {};
-  try {
-    parsedArgs = jsonArgs ? JSON.parse(jsonArgs) : {};
-  } catch (e) {
-    return `error: invalid JSON args: ${(e as Error).message}`;
+  if (jsonArgs.trim() && jsonArgs.trim() !== '{}') {
+    try {
+      parsedArgs = JSON.parse(jsonArgs);
+    } catch (e) {
+      return `Error: arguments are not valid JSON: ${(e as Error).message}`;
+    }
   }
   const cborArgs = encodeCbor(parsedArgs);
   try {
     const result = await tool.provider.callTool(name, cborArgs, []);
     if (result.tag === 'streaming') {
-      return '[streaming results not yet rendered]';
+      return '[streaming tool result not yet supported in playground]';
     }
     const parts: string[] = [];
     for (const ev of result.val) {
@@ -88,26 +127,28 @@ async function invokeTool(
           parts.push(`(${mime}, ${ev.val.data.length} bytes)`);
         }
       } else {
-        parts.push('error: ' + (ev.val.message?.val ?? JSON.stringify(ev.val)));
+        const msg =
+          ev.val.message.tag === 'plain'
+            ? ev.val.message.val
+            : ev.val.message.val[0]?.[1] ?? 'unknown error';
+        parts.push(`Error: ${msg}`);
       }
     }
     return parts.join('\n');
   } catch (e) {
-    return `error: ${(e as Error).message}`;
+    return `Error: ${(e as Error).message}`;
   }
 }
 
 export interface ChatRunOptions {
   /** Called for every message added to the conversation. */
   onMessage: (m: ChatMessage) => void;
-  /** Tool-call iteration cap to prevent runaway loops. */
+  /** Maximum tool-call hops per user turn. Default 4. */
   maxToolHops?: number;
+  /** Sampling temperature. Default 0.2 — low for tool-call format reliability. */
+  temperature?: number;
 }
 
-/**
- * Run one user turn through the LLM, dispatching any tool calls back to
- * loaded ACT components, looping until the model produces a final text reply.
- */
 export async function runUserTurn(
   history: ChatMessage[],
   userInput: string,
@@ -116,67 +157,56 @@ export async function runUserTurn(
 ): Promise<void> {
   const engine = getEngine();
   if (!engine) throw new Error('LLM not loaded');
-
   const maxHops = options.maxToolHops ?? 4;
+  const temperature = options.temperature ?? 0.2;
 
+  // Rebuild system prompt every turn — tool list may have changed since last.
+  const systemMsg: ChatMessage = { role: 'system', content: buildSystemPrompt(loaded) };
   if (history.length === 0 || history[0]?.role !== 'system') {
-    history.unshift({ role: 'system', content: SYSTEM_PROMPT });
+    history.unshift(systemMsg);
+  } else {
+    history[0] = systemMsg;
   }
+
   const userMsg: ChatMessage = { role: 'user', content: userInput };
   history.push(userMsg);
   options.onMessage(userMsg);
 
-  const tools = loaded.length > 0 ? buildToolList(loaded) : undefined;
-
   for (let hop = 0; hop <= maxHops; hop++) {
     const resp = await engine.chat.completions.create({
-      messages: history.map(stripExtras) as unknown as Parameters<
+      messages: history.map((m) => ({ role: m.role, content: m.content })) as Parameters<
         typeof engine.chat.completions.create
       >[0]['messages'],
-      tools,
-      tool_choice: tools ? 'auto' : undefined,
+      temperature,
       stream: false,
     });
 
-    const choice = resp.choices[0];
-    if (!choice) break;
-    const msg = choice.message;
+    const raw = resp.choices[0]?.message.content ?? '';
+    const toolCalls = extractToolCalls(raw);
 
     const assistantMsg: ChatMessage = {
       role: 'assistant',
-      content: msg.content ?? '',
-      tool_calls: msg.tool_calls?.map((tc) => ({
-        id: tc.id,
-        type: 'function',
-        function: {
-          name: tc.function?.name ?? '',
-          arguments: tc.function?.arguments ?? '',
-        },
-      })),
+      content: raw,
+      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
     };
     history.push(assistantMsg);
     options.onMessage(assistantMsg);
 
-    if (!assistantMsg.tool_calls || assistantMsg.tool_calls.length === 0) {
-      return; // final answer
-    }
+    if (toolCalls.length === 0) return;
 
-    for (const tc of assistantMsg.tool_calls) {
-      const result = await invokeTool(loaded, tc.function.name, tc.function.arguments);
-      const toolMsg: ChatMessage = {
-        role: 'tool',
-        tool_call_id: tc.id,
-        content: result,
-      };
-      history.push(toolMsg);
-      options.onMessage(toolMsg);
+    // Run every tool_call sequentially. Compose a synthetic user turn carrying
+    // the results. We don't use OpenAI's `tool` role because we're not using
+    // WebLLM's native tool-calling API.
+    const resultLines: string[] = [];
+    for (const tc of toolCalls) {
+      const result = await invokeTool(loaded, tc.name, tc.arguments);
+      resultLines.push(`Tool result for \`${tc.name}\`:\n${result}`);
     }
+    const toolResultMsg: ChatMessage = {
+      role: 'user',
+      content: resultLines.join('\n\n') + '\n\nNow write your final reply, quoting the result.',
+    };
+    history.push(toolResultMsg);
+    options.onMessage(toolResultMsg);
   }
-}
-
-function stripExtras(m: ChatMessage): Record<string, unknown> {
-  const out: Record<string, unknown> = { role: m.role, content: m.content };
-  if (m.tool_call_id) out['tool_call_id'] = m.tool_call_id;
-  if (m.tool_calls) out['tool_calls'] = m.tool_calls;
-  return out;
 }

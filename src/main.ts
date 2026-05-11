@@ -193,7 +193,7 @@ function renderMessage(m: ChatMessage) {
   if (m.content) body += `<div class="msg-content">${escapeHtml(m.content)}</div>`;
   if (m.tool_calls) {
     for (const tc of m.tool_calls) {
-      body += `<div class="msg-tool-call">→ <b>${escapeHtml(tc.function.name)}</b>(${escapeHtml(tc.function.arguments || '{}')})</div>`;
+      body += `<div class="msg-tool-call">→ <b>${escapeHtml(tc.name)}</b>(${escapeHtml(tc.arguments || '{}')})</div>`;
     }
   }
   div.innerHTML = body;
@@ -211,7 +211,7 @@ llmLoadBtn.addEventListener('click', async () => {
         chatInput.disabled = false;
         chatSend.disabled = false;
         llmLoadBtn.hidden = true;
-        llmStatusText.textContent = 'Hermes-3-Llama-3.1-8B ready';
+        llmStatusText.textContent = 'Llama-3.2-3B ready';
         log('LLM ready', 'ok');
       } else if (s.state === 'error') {
         llmLoadBtn.disabled = false;

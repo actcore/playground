@@ -11,12 +11,16 @@
  */
 import { CreateMLCEngine, type MLCEngineInterface, type InitProgressReport } from '@mlc-ai/web-llm';
 
-// Hermes-3-Llama-3.1-8B is one of the few WebLLM-supported models with
-// native ChatCompletionRequest.tools (function-calling). f32 variant chosen
-// over q4f16 because the latter triggers WGSL shader-compile failures on
-// some GPUs/drivers ("[Invalid ShaderModule]"). ~6.5 GB one-time download,
-// cached in browser CacheStorage after that.
-export const MODEL_ID = 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC';
+// Llama-3.2-3B-Instruct is small enough for a casual visitor to wait through
+// (~2 GB one-time download, cached after that) and big enough to follow a
+// structured "emit <tool_call>" prompt reliably. We use prompt-based tool
+// dispatch (see chat.ts), NOT WebLLM's native ChatCompletionRequest.tools —
+// the latter is hardcoded to a short list of Hermes-fine-tuned 8B models and
+// the parser is too strict to be production-reliable.
+//
+// f32 quantisation chosen over q4f16 to avoid WGSL shader-compile failures
+// on some GPUs/drivers ("[Invalid ShaderModule]").
+export const MODEL_ID = 'Llama-3.2-3B-Instruct-q4f32_1-MLC';
 
 export interface LlmStatus {
   state: 'idle' | 'loading' | 'ready' | 'error';
