@@ -27,7 +27,7 @@ import { runUserTurn, type ChatMessage, type LoadedTool } from './chat.js';
   wrap('instantiateStreaming', 'instantiate');
 }
 
-import { runComponent } from '@actcore/host';
+import { runComponent, resolveLocalizedString } from '@actcore/host';
 import { loadFromUrl, loadFromFile } from './url-loader.js';
 
 // Absolute URL of the preview2-shim browser bundle. In dev Vite serves
@@ -91,8 +91,7 @@ function renderToolList() {
   toolsSection.hidden = loaded.length === 0;
   toolListEl.innerHTML = '';
   loaded.forEach((t, i) => {
-    const desc =
-      t.def.description.tag === 'plain' ? t.def.description.val : '[localized]';
+    const desc = resolveLocalizedString(t.def.description);
     const li = document.createElement('li');
     li.innerHTML = `
       <div><span class="tool-name">${escapeHtml(t.def.name)}</span>
@@ -116,12 +115,16 @@ toolListEl.addEventListener('click', async (e) => {
   resultEl.hidden = false;
   resultEl.classList.remove('err');
   resultEl.textContent = 'running…';
+  log(`calling ${t.def.name}({}) · from ${t.source}`);
+  const t0 = performance.now();
   try {
     // CBOR null map: 0xa0
     const args = new Uint8Array([0xa0]);
     const result = await t.provider.callTool(t.def.name, args, []);
+    const ms = Math.round(performance.now() - t0);
     if (result.tag === 'immediate') {
       const parts: string[] = [];
+      let errEv: string | null = null;
       for (const ev of result.val) {
         if (ev.tag === 'content') {
           const mime = ev.val.mimeType ?? 'application/octet-stream';
@@ -133,16 +136,27 @@ toolListEl.addEventListener('click', async (e) => {
             parts.push(`(${mime}, ${ev.val.data.length} bytes)`);
           }
         } else {
-          parts.push('error: ' + JSON.stringify(ev.val));
+          const msg = resolveLocalizedString(ev.val.message);
+          parts.push(`error: ${ev.val.kind} · ${msg}`);
+          errEv = `${ev.val.kind} · ${msg}`;
         }
       }
       resultEl.textContent = parts.join('\n');
+      if (errEv) {
+        log(`  ✗ ${t.def.name} → ${errEv} (${ms} ms)`, 'err');
+      } else {
+        log(`  → ${t.def.name} returned ${result.val.length} event${result.val.length === 1 ? '' : 's'} (${ms} ms)`, 'ok');
+      }
     } else {
       resultEl.textContent = 'streaming result (not yet rendered in playground)';
+      log(`  → ${t.def.name} returned streaming result (${ms} ms)`, 'ok');
     }
   } catch (err) {
+    const ms = Math.round(performance.now() - t0);
+    const msg = String((err as Error).message || err);
     resultEl.classList.add('err');
-    resultEl.textContent = String((err as Error).message || err);
+    resultEl.textContent = msg;
+    log(`  ✗ ${t.def.name} threw: ${msg} (${ms} ms)`, 'err');
   }
 });
 
