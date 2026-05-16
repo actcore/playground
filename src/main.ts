@@ -318,8 +318,37 @@ async function runTool(i: number, args: Record<string, unknown>): Promise<void> 
         log(`  → ${t.def.name} returned ${result.val.length} event${result.val.length === 1 ? '' : 's'} (${ms} ms)`, 'ok');
       }
     } else {
-      resultEl.textContent = 'streaming result (not yet rendered in playground)';
-      log(`  → ${t.def.name} returned streaming result (${ms} ms)`, 'ok');
+      // Streaming variant — the host has already drained the stream and given
+      // us an array of tool-events in result.val. Render them the same way as
+      // immediate.
+      const parts: string[] = [];
+      let errEv: string | null = null;
+      for (const ev of result.val) {
+        if (ev.tag === 'content') {
+          const mime = ev.val.mimeType ?? 'application/octet-stream';
+          const data = ev.val.data instanceof Uint8Array
+            ? ev.val.data
+            : new Uint8Array(Array.isArray(ev.val.data) ? ev.val.data : []);
+          if (mime.startsWith('text/') || mime === 'application/json') {
+            parts.push(new TextDecoder().decode(data));
+          } else if (mime === 'application/cbor') {
+            parts.push(`(cbor, ${data.length} bytes)`);
+          } else {
+            parts.push(`(${mime}, ${data.length} bytes)`);
+          }
+        } else {
+          const msg = resolveLocalizedString(ev.val.message);
+          parts.push(`error: ${ev.val.kind} · ${msg}`);
+          errEv = `${ev.val.kind} · ${msg}`;
+        }
+      }
+      resultEl.textContent = parts.join('') || '(streaming returned 0 events)';
+      if (errEv) {
+        resultEl.classList.add('err');
+        log(`  ✗ ${t.def.name} → ${errEv} (streaming, ${ms} ms)`, 'err');
+      } else {
+        log(`  → ${t.def.name} streamed ${result.val.length} event${result.val.length === 1 ? '' : 's'} (${ms} ms)`, 'ok');
+      }
     }
   } catch (err) {
     const ms = Math.round(performance.now() - t0);
