@@ -5,3 +5,4 @@ dist/
 .vite/
 # Populated by scripts/copy-shims.mjs at build time; do not commit.
 public/preview2-shim/
+public/host/
