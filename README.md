@@ -9,7 +9,7 @@ A browser-native AI agent stack. Paste a wasm component URL, the tool loads and 
 A demonstration of [`@actcore/host`](https://github.com/actcore/host-browser) — a browser host for [ACT](https://actcore.dev) components. Each tool is a wasm component packed with `act-build`, distributed via an OCI registry, and signed by its author. The playground:
 
 1. Resolves a URL (`oci://`, `https://`, or a dropped `.wasm` file).
-2. Pulls the bytes (OCI fetches go through [`oci-cors-proxy`](https://github.com/actcore/oci-cors-proxy) so the browser sees permissive CORS).
+2. Pulls the bytes. Most OCI fetches go through [`oci-cors-proxy`](https://github.com/actcore/oci-cors-proxy) so the browser sees permissive CORS; registries that serve CORS themselves (e.g. [`actpkg.dev`](https://actpkg.dev)) are fetched directly.
 3. Verifies the SHA-256 of the bytes against the OCI manifest digest.
 4. Transpiles the component in-page via `@bytecodealliance/jco`.
 5. Instantiates it (WebAssembly Component Model, wasip3-async, JSPI).

@@ -6,7 +6,39 @@
  * which the caller hands to `@actcore/host`'s `runComponent`.
  */
 
-const DEFAULT_OCI_PROXY = 'https://oci-cors.actcore.dev';
+const OCI_CORS_PROXY = 'https://oci-cors.actcore.dev';
+
+/**
+ * Registries the browser can reach directly because they already serve
+ * permissive CORS — these bypass the `oci-cors-proxy`. `tokenPath` is the
+ * Distribution-Spec token realm (the `WWW-Authenticate: Bearer realm=…` the
+ * registry advertises on a 401), relative to the registry origin.
+ *
+ * Every other host is routed through `OCI_CORS_PROXY`, whose token realm is the
+ * Docker-default `/token`.
+ */
+const DIRECT_REGISTRIES: Record<string, { tokenPath: string }> = {
+  // actpkg.dev: zot behind a Django-issued bearer token (anonymous pulls are
+  // granted for public components). See actpkg.dev backend `accounts/oci_token`.
+  'actpkg.dev': { tokenPath: '/api/v1/token' },
+};
+
+interface RegistryEndpoints {
+  /** Base for `/v2/...` requests (no trailing slash). */
+  base: string;
+  /** Absolute URL of the token realm (without query string). */
+  tokenEndpoint: string;
+}
+
+function registryEndpoints(host: string): RegistryEndpoints {
+  const direct = DIRECT_REGISTRIES[host];
+  if (direct) {
+    const origin = `https://${host}`;
+    return { base: origin, tokenEndpoint: `${origin}${direct.tokenPath}` };
+  }
+  const base = `${OCI_CORS_PROXY}/${host}`;
+  return { base, tokenEndpoint: `${base}/token` };
+}
 
 export interface LoadProgress {
   (msg: string, level?: 'info' | 'ok' | 'err'): void;
@@ -37,7 +69,11 @@ async function loadHttp(url: string, log: LoadProgress): Promise<Uint8Array> {
 }
 
 /**
- * Pull a wasm component from an OCI registry via the public CORS proxy.
+ * Pull a wasm component from an OCI registry.
+ *
+ * Most registries are reached through the public CORS proxy; registries in
+ * `DIRECT_REGISTRIES` (e.g. actpkg.dev) are fetched directly because they serve
+ * permissive CORS themselves.
  *
  * Steps (standard OCI Distribution Spec bearer flow):
  *  1. Resolve a pull-scoped Bearer token from the registry's token endpoint.
@@ -46,18 +82,21 @@ async function loadHttp(url: string, log: LoadProgress): Promise<Uint8Array> {
  *  4. Fetch the blob at `/v2/<repo>/blobs/<digest>`.
  *  5. Verify SHA-256 of the blob bytes locally against `<digest>`.
  *
- * Step 5 is the trust anchor — a malicious proxy CANNOT serve tampered
- * bytes undetected, because the digest from the manifest is computed by
- * the registry and the bytes are verified against it on the client.
+ * Step 5 is the trust anchor — neither a malicious proxy NOR a malicious
+ * registry can serve tampered bytes undetected, because the digest comes from
+ * the manifest and the bytes are verified against it on the client.
  */
 async function loadOci(url: string, log: LoadProgress): Promise<Uint8Array> {
   const ref = parseOciRef(url);
-  log(`oci pull · registry=${ref.host} repo=${ref.repo} tag=${ref.tag}`);
-
-  const proxyBase = `${DEFAULT_OCI_PROXY}/${ref.host}`;
+  const { base, tokenEndpoint } = registryEndpoints(ref.host);
+  const direct = ref.host in DIRECT_REGISTRIES;
+  log(
+    `oci pull · registry=${ref.host} repo=${ref.repo} tag=${ref.tag}` +
+      (direct ? ' (direct)' : ' (via cors proxy)'),
+  );
 
   // 1. Token.
-  const tokenUrl = `${proxyBase}/token?service=${ref.host}&scope=repository:${ref.repo}:pull`;
+  const tokenUrl = `${tokenEndpoint}?service=${ref.host}&scope=repository:${ref.repo}:pull`;
   log(`  → token…`);
   const tokenResp = await fetch(tokenUrl);
   if (!tokenResp.ok) throw new Error(`token: HTTP ${tokenResp.status}`);
@@ -67,7 +106,7 @@ async function loadOci(url: string, log: LoadProgress): Promise<Uint8Array> {
 
   // 2. Manifest.
   log(`  → manifest…`);
-  const manifestUrl = `${proxyBase}/v2/${ref.repo}/manifests/${ref.tag}`;
+  const manifestUrl = `${base}/v2/${ref.repo}/manifests/${ref.tag}`;
   const manifestResp = await fetch(manifestUrl, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -89,7 +128,7 @@ async function loadOci(url: string, log: LoadProgress): Promise<Uint8Array> {
 
   // 4. Blob.
   log(`  → blob…`);
-  const blobUrl = `${proxyBase}/v2/${ref.repo}/blobs/${wasmLayer.digest}`;
+  const blobUrl = `${base}/v2/${ref.repo}/blobs/${wasmLayer.digest}`;
   const blobResp = await fetch(blobUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
