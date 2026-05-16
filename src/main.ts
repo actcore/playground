@@ -320,15 +320,23 @@ async function runTool(i: number, args: Record<string, unknown>): Promise<void> 
     } else {
       // Streaming variant — the host has already drained the stream and given
       // us an array of tool-events in result.val. Render them the same way as
-      // immediate.
+      // immediate, but mime-type from wasi:http content-part comes as an
+      // option<string> variant `{tag:'some',val:string}` rather than a plain
+      // string, so normalise first.
       const parts: string[] = [];
       let errEv: string | null = null;
       for (const ev of result.val) {
         if (ev.tag === 'content') {
-          const mime = ev.val.mimeType ?? 'application/octet-stream';
+          const rawMime = ev.val.mimeType;
+          const mime: string =
+            typeof rawMime === 'string'
+              ? rawMime
+              : rawMime && typeof rawMime === 'object' && (rawMime as { tag?: string }).tag === 'some'
+                ? String((rawMime as { val: string }).val)
+                : 'application/octet-stream';
           const data = ev.val.data instanceof Uint8Array
             ? ev.val.data
-            : new Uint8Array(Array.isArray(ev.val.data) ? ev.val.data : []);
+            : new Uint8Array(Array.isArray(ev.val.data) ? (ev.val.data as number[]) : []);
           if (mime.startsWith('text/') || mime === 'application/json') {
             parts.push(new TextDecoder().decode(data));
           } else if (mime === 'application/cbor') {
