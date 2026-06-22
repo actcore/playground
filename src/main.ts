@@ -36,7 +36,7 @@ import { encodeCbor } from './cbor-mini.js';
 // into public/preview2-shim/ via a build step.
 const SHIM_BASE_URL =
   import.meta.env.DEV
-    ? location.origin + '/node_modules/@bytecodealliance/preview2-shim/lib/browser/'
+    ? location.origin + '/node_modules/@bytecodealliance/preview2-shim/dist/browser/'
     : location.origin + '/preview2-shim/';
 
 // Absolute URL of @actcore/host's wasi:http p3 shim. Implements the

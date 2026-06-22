@@ -25,7 +25,8 @@ async function copyJs(src, dst, label) {
 }
 
 await copyJs(
-  join(root, 'node_modules/@bytecodealliance/preview2-shim/lib/browser'),
+  // preview2-shim 0.19 moved its browser build lib/browser → dist/browser.
+  join(root, 'node_modules/@bytecodealliance/preview2-shim/dist/browser'),
   join(root, 'public/preview2-shim'),
   'preview2-shim',
 );

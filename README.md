@@ -24,7 +24,8 @@ This repo expects `actcore/host-browser` checked out as a sibling directory (the
 
 ```sh
 git clone https://github.com/actcore/host-browser ../host-browser
-cd ../host-browser && npm install && npm run build
+# host-browser fetches its WIT deps with wkg (https://github.com/bytecodealliance/wasm-pkg-tools)
+cd ../host-browser && npm install && npm run sync-wit && npm run build
 cd -                                            # back to playground
 npm install
 npm run dev                                     # http://localhost:5173

@@ -31,10 +31,21 @@ jobs:
         with:
           node-version: '22'
 
+      # host-browser fetches its WIT deps with wkg (wit/deps is gitignored,
+      # pinned by wkg.lock). Install the prebuilt binary — no Rust needed.
+      - name: Install wkg
+        run: |
+          curl -fsSL https://github.com/bytecodealliance/wasm-pkg-tools/releases/download/v0.15.1/wkg-x86_64-unknown-linux-gnu -o "$RUNNER_TEMP/wkg"
+          chmod +x "$RUNNER_TEMP/wkg"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
       - name: Build @actcore/host
         working-directory: host-browser
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm ci
+          npm run sync-wit
           npm run build
 
       - name: Install playground deps (resolves @actcore/host via file:../host-browser)
