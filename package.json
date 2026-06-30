@@ -18,7 +18,8 @@
     "@bytecodealliance/jco": "^1.24.3",
     "@bytecodealliance/jco-transpile": "^0.3.3",
     "@bytecodealliance/preview2-shim": "^0.19.0",
-    "@mlc-ai/web-llm": "^0.2.83"
+    "@mlc-ai/web-llm": "^0.2.83",
+    "cbor2": "^2.3.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

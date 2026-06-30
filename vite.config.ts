@@ -22,8 +22,23 @@ export default defineConfig({
     target: 'es2022',
     sourcemap: true,
   },
+  // @actcore/host runs jco's transpiler in a Web Worker (new Worker(..., {type:
+  // 'module'})). That worker code-splits (it dynamic-imports the bindgen core
+  // wasm), which Rollup can't emit as the default `iife` worker format — it
+  // requires ES modules. The worker is created with type:'module' anyway.
+  worker: {
+    format: 'es',
+  },
   server: {
     port: 5173,
+    fs: {
+      // @actcore/host is a linked dep (file:../host-browser) outside this
+      // project root. Its Web Worker entry (dist/transpile.worker.js) is fetched
+      // by the browser at runtime, so the dev server must be allowed to serve
+      // from the parent workspace dir. (Production `vite build` bundles the
+      // worker, so this only matters for `vite dev`.)
+      allow: ['..'],
+    },
   },
   resolve: {
     alias: {
@@ -34,6 +49,14 @@ export default defineConfig({
   optimizeDeps: {
     // Bypass Vite's pre-bundling for @actcore/host so we can iterate on its
     // source without `npm install`-rebuilding the dep cache.
-    exclude: ['@actcore/host'],
+    //
+    // jco-transpile's vendored bindgen MUST also be excluded: it loads its core
+    // wasm via `new URL('./x.core.wasm', import.meta.url)`. esbuild's pre-bundle
+    // rewrites that to a `.vite/deps/` sibling but never copies the .wasm there,
+    // so the URL 200-falls-back to index.html and `WebAssembly.compile` chokes on
+    // the HTML. Excluding it makes Vite serve the bindgen from its real
+    // node_modules path, where the sibling .core.wasm files exist. (Dev only —
+    // `vite build` bundles + emits these assets correctly.)
+    exclude: ['@actcore/host', '@bytecodealliance/jco-transpile'],
   },
 });

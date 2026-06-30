@@ -19,7 +19,7 @@
  * dependency on WebLLM's tool-list and no fragility around output format.
  */
 import type { ToolProvider, ToolDefinition } from '@actcore/host';
-import { encodeCbor } from './cbor-mini.js';
+import { encodeCbor } from './cbor.js';
 import { getEngine } from './webllm.js';
 
 export interface LoadedTool {

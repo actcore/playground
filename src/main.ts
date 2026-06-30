@@ -29,7 +29,7 @@ import { runUserTurn, type ChatMessage, type LoadedTool } from './chat.js';
 
 import { runComponent, resolveLocalizedString } from '@actcore/host';
 import { loadFromUrl, loadFromFile } from './url-loader.js';
-import { encodeCbor } from './cbor-mini.js';
+import { encodeCbor } from './cbor.js';
 
 // Absolute URL of the preview2-shim browser bundle. In dev Vite serves
 // node_modules directly; for the production GH Pages build we copy the shim
@@ -76,6 +76,7 @@ function escapeHtml(s: string) {
 }
 
 const loaded: LoadedTool[] = [];
+let sessionId: string | null = null;
 
 function sanitizeName(source: string): string {
   // jco uses `name` as the basename of emitted files. Avoid dots, slashes
@@ -91,11 +92,22 @@ async function loadFromBytes(bytes: Uint8Array, source: string) {
   await renderComponentCard(bytes, source);
 
   log(`instantiating ${bytes.length}-byte component…`);
-  const { toolProvider } = await runComponent(bytes, {
+  const { toolProvider, sessionProvider } = await runComponent(bytes, {
     name: sanitizeName(source),
     shimBase: SHIM_BASE_URL,
     wasiHttpShimUrl: WASI_HTTP_SHIM_URL,
-  });
+  }) as { toolProvider: typeof loaded[number]['provider']; sessionProvider?: { openSession(a: unknown[], m: unknown[]): Promise<{ id: string }> } };
+
+  sessionId = null;
+  if (sessionProvider) {
+    try {
+      const sess = await sessionProvider.openSession([], []);
+      sessionId = sess.id;
+      log(`  session opened: ${sess.id}`, 'ok');
+    } catch (e) {
+      log(`  openSession failed: ${(e as Error).message}`, 'err');
+    }
+  }
 
   const resp = await toolProvider.listTools([]);
   log(`  ${resp.tools.length} tool${resp.tools.length === 1 ? '' : 's'} exported`, 'ok');
@@ -289,14 +301,23 @@ async function runTool(i: number, args: Record<string, unknown>): Promise<void> 
   const t0 = performance.now();
   try {
     const argBytes = encodeCbor(args);
-    const result = await t.provider.callTool(t.def.name, argBytes, []);
+    const meta: Array<[string, Uint8Array]> = sessionId
+      ? [['std:session-id', encodeCbor(sessionId)]]
+      : [];
+    const result = await t.provider.callTool(t.def.name, argBytes, meta);
+    (window as unknown as { __lastResult: unknown }).__lastResult = result;
     const ms = Math.round(performance.now() - t0);
     if (result.tag === 'immediate') {
       const parts: string[] = [];
       let errEv: string | null = null;
       for (const ev of result.val) {
         if (ev.tag === 'content') {
-          const mime = ev.val.mimeType ?? 'application/octet-stream';
+          const rawMime = ev.val.mimeType as unknown;
+          const mime: string = typeof rawMime === 'string'
+            ? rawMime
+            : (rawMime && (rawMime as { tag?: string }).tag === 'some'
+                ? String((rawMime as { val: string }).val)
+                : 'application/octet-stream');
           if (mime.startsWith('text/') || mime === 'application/json') {
             parts.push(new TextDecoder().decode(ev.val.data as Uint8Array));
           } else if (mime === 'application/cbor') {
