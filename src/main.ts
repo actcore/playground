@@ -27,7 +27,13 @@ import { runUserTurn, type ChatMessage, type LoadedTool } from './chat.js';
   wrap('instantiateStreaming', 'instantiate');
 }
 
-import { runComponent, resolveLocalizedString } from '@actcore/host';
+import {
+  runComponent,
+  resolveLocalizedString,
+  exposeToWebmcp,
+  isWebmcpAvailable,
+  type WebmcpExposure,
+} from '@actcore/host';
 import { loadFromUrl, loadFromFile } from './url-loader.js';
 import { encodeCbor } from './cbor.js';
 
@@ -58,6 +64,7 @@ const cardSourceEl = document.getElementById('card-source') as HTMLElement;
 const cardSizeEl = document.getElementById('card-size') as HTMLElement;
 const cardShaEl = document.getElementById('card-sha256') as HTMLElement;
 const cardToolCountEl = document.getElementById('card-tool-count') as HTMLElement;
+const webmcpStatusEl = document.getElementById('webmcp-status') as HTMLElement;
 
 function log(msg: string, level: 'info' | 'ok' | 'err' = 'info') {
   const cls = level === 'ok' ? 'ok' : level === 'err' ? 'err' : 'dim';
@@ -77,6 +84,7 @@ function escapeHtml(s: string) {
 
 const loaded: LoadedTool[] = [];
 let sessionId: string | null = null;
+let webmcpExposure: WebmcpExposure | null = null;
 
 function sanitizeName(source: string): string {
   // jco uses `name` as the basename of emitted files. Avoid dots, slashes
@@ -118,6 +126,19 @@ async function loadFromBytes(bytes: Uint8Array, source: string) {
   }
   cardToolCountEl.textContent = String(resp.tools.length);
   renderToolList();
+
+  webmcpExposure?.dispose();
+  webmcpExposure = await exposeToWebmcp(toolProvider, resp.tools, {
+    getSessionId: () => sessionId,
+  });
+  if (webmcpExposure.available) {
+    const n = webmcpExposure.count;
+    webmcpStatusEl.textContent = `✓ ${n} tool${n === 1 ? '' : 's'} exposed to your browser agent on document.modelContext`;
+    log(`WebMCP: ${n} tool${n === 1 ? '' : 's'} registered on document.modelContext`, 'ok');
+  } else {
+    webmcpStatusEl.textContent =
+      'document.modelContext not available in this browser — WebMCP exposure skipped';
+  }
 }
 
 async function renderComponentCard(bytes: Uint8Array, source: string) {
@@ -524,4 +545,15 @@ if (typeof (WebAssembly as unknown as { promising?: unknown }).promising !== 'fu
   );
 } else {
   log('JSPI available · ready', 'ok');
+}
+
+// === WebMCP gate ===========================================================
+if (isWebmcpAvailable()) {
+  log('WebMCP available · document.modelContext', 'ok');
+} else {
+  log(
+    'WebMCP unavailable — native document.modelContext needs Chrome 149+ ' +
+      '(chrome://flags/#enable-webmcp-testing) or the origin trial. Tools still ' +
+      'load and run; they just are not exposed to a browser agent.',
+  );
 }

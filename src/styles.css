@@ -338,3 +338,8 @@ pre#log .dim { color: var(--muted); }
 
 footer { margin-top: 4em; padding-top: 1.5em; border-top: 1px solid var(--border); }
 footer p { font-size: .85em; margin: 0; }
+
+.webmcp-status {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+}
