@@ -1,5 +1,5 @@
 import './styles.css';
-import { loadLlm } from './webllm.js';
+import { engineById, pickDefault, probeEngines, type EngineChoice, type LlmEngine } from './llm/index.js';
 import { runUserTurn, type ChatMessage, type LoadedTool } from './chat.js';
 
 // Lenient WebAssembly.compileStreaming — Chrome strict-MIME-checks rejects
@@ -467,7 +467,9 @@ document.addEventListener('drop', async (e) => {
   }
 });
 
-// === LLM (WebLLM Llama-3.2-1B) =============================================
+// === LLM ===================================================================
+const llmEngineSel = document.getElementById('llm-engine') as HTMLSelectElement;
+const llmEngineDetail = document.getElementById('llm-engine-detail') as HTMLParagraphElement;
 const llmLoadBtn = document.getElementById('llm-load-btn') as HTMLButtonElement;
 const llmStatusText = document.getElementById('llm-status-text') as HTMLSpanElement;
 const chatBox = document.getElementById('chat') as HTMLElement;
@@ -494,18 +496,80 @@ function renderMessage(m: ChatMessage) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+// Availability is probed once at startup: neither check downloads anything or
+// costs more than a few milliseconds.
+let choices: EngineChoice[] = [];
+let engine: LlmEngine | null = null;
+
+function choiceFor(id: string): EngineChoice | undefined {
+  return choices.find((c) => c.engine.id === id);
+}
+
+/**
+ * Reflects the selected engine in the button, the hint line, and the chat box.
+ * An engine already loaded keeps the chat open, so switching back and forth
+ * mid-conversation costs nothing.
+ */
+function syncEngineUi() {
+  const choice = engine ? choiceFor(engine.id) : undefined;
+  if (!engine || !choice) return;
+
+  const unavailable = choice.availability.state === 'unavailable';
+
+  if (engine.isReady()) {
+    // `choices` is a startup snapshot, so its detail still quotes the download
+    // cost of an engine that has since loaded. Say what's true now instead.
+    llmEngineDetail.textContent = `${engine.label} — loaded, running in this tab`;
+    llmLoadBtn.hidden = true;
+    llmStatusText.textContent = `${engine.label} ready`;
+    chatBox.hidden = false;
+    chatInput.disabled = false;
+    chatSend.disabled = false;
+    return;
+  }
+
+  llmEngineDetail.textContent = `${engine.label} — ${choice.availability.detail}`;
+  llmLoadBtn.hidden = false;
+  llmLoadBtn.disabled = unavailable;
+  llmLoadBtn.textContent =
+    choice.availability.state === 'available' ? 'Load model (no download)' : 'Load model';
+  llmStatusText.textContent = unavailable ? 'not available in this browser' : '';
+  chatBox.hidden = true;
+  chatInput.disabled = true;
+  chatSend.disabled = true;
+}
+
+async function initEngines() {
+  choices = await probeEngines();
+  for (const { engine: e, availability } of choices) {
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = e.label;
+    opt.disabled = availability.state === 'unavailable';
+    llmEngineSel.appendChild(opt);
+  }
+  const defaultId = pickDefault(choices);
+  llmEngineSel.value = defaultId;
+  engine = engineById(defaultId) ?? null;
+  syncEngineUi();
+}
+
+llmEngineSel.addEventListener('change', () => {
+  engine = engineById(llmEngineSel.value) ?? null;
+  syncEngineUi();
+});
+
 llmLoadBtn.addEventListener('click', async () => {
+  const target = engine;
+  if (!target) return;
   llmLoadBtn.disabled = true;
   try {
-    await loadLlm((s) => {
+    await target.load((s) => {
       llmStatusText.textContent = s.message;
       if (s.state === 'ready') {
-        chatBox.hidden = false;
-        chatInput.disabled = false;
-        chatSend.disabled = false;
-        llmLoadBtn.hidden = true;
-        llmStatusText.textContent = 'Llama-3.2-3B ready';
-        log('LLM ready', 'ok');
+        // The user may have switched engines while this one was downloading.
+        if (engine === target) syncEngineUi();
+        log(`${target.label} ready`, 'ok');
       } else if (s.state === 'error') {
         llmLoadBtn.disabled = false;
         log('LLM load failed: ' + s.message, 'err');
@@ -517,6 +581,8 @@ llmLoadBtn.addEventListener('click', async () => {
   }
 });
 
+void initEngines();
+
 chatForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
@@ -525,7 +591,9 @@ chatForm.addEventListener('submit', async (e) => {
   chatInput.disabled = true;
   chatSend.disabled = true;
   try {
+    if (!engine) throw new Error('no LLM engine selected');
     await runUserTurn(conversation, text, loaded, {
+      engine,
       onMessage: renderMessage,
     });
   } catch (err) {

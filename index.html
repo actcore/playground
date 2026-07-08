@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0a0a">
   <title>playground.actcore.dev — wasm agent tools in your browser tab</title>
-  <meta name="description" content="Browser-native AI agent stack: local LLM (WebLLM) + sandboxed wasm tools (ACT), no server. Open a URL, run a tool, talk to a model — all in one tab.">
+  <meta name="description" content="Browser-native AI agent stack: a local LLM (Chrome's built-in model or WebLLM) + sandboxed wasm tools (ACT), no server. Open a URL, run a tool, talk to a model — all in one tab.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0a0a'/%3E%3Ctext x='50%25' y='52%25' font-size='34' text-anchor='middle' fill='%23fafafa' font-family='ui-monospace,monospace'%3E%E2%96%B6%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -73,14 +73,20 @@
     <section id="llm" class="llm">
       <h2>Local LLM</h2>
       <p class="llm-intro muted">
-        Load a 3B-parameter Llama in this tab (WebGPU, ~2 GB one-time download).
-        Ask a question — the LLM picks which loaded tool to call, the call runs
-        sandboxed in the same tab, and the result feeds back into the answer.
+        Run a model in this tab and ask it a question — the LLM picks which
+        loaded tool to call, the call runs sandboxed in the same tab, and the
+        result feeds back into the answer. Chrome's built-in model needs no
+        download; WebLLM works in any browser with WebGPU.
       </p>
       <div id="llm-status">
-        <button id="llm-load-btn">Load Llama-3.2-3B (~2 GB, one-time)</button>
+        <label class="engine-pick">
+          <span class="engine-pick-label">Engine</span>
+          <select id="llm-engine"></select>
+        </label>
+        <button id="llm-load-btn">Load model</button>
         <span id="llm-status-text" class="muted"></span>
       </div>
+      <p id="llm-engine-detail" class="hint"></p>
       <div id="chat" hidden>
         <div id="messages" class="messages"></div>
         <form id="chat-form" class="chat-form">

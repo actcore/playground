@@ -8,8 +8,16 @@
  * dCBOR wire format.
  */
 
-import { encode } from 'cbor2';
+import { decode, encode } from 'cbor2';
 
 export function encodeCbor(value: unknown): Uint8Array {
   return encode(value, { dcbor: true });
+}
+
+/**
+ * Decodes a tool result's CBOR bytes back into a JSON value. ACT SDKs return
+ * dCBOR by default, and an LLM can only quote a result it can read.
+ */
+export function decodeCbor(bytes: Uint8Array): unknown {
+  return decode(bytes);
 }

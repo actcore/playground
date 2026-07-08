@@ -15,7 +15,12 @@ A demonstration of [`@actcore/web-runtime`](https://github.com/actcore/web-runti
 5. Instantiates it (WebAssembly Component Model, wasip3-async, JSPI).
 6. Exposes its `act:tools/tool-provider` so you can click "Run" and see the output.
 
-In a follow-up iteration, a local [WebLLM](https://github.com/mlc-ai/web-llm) Llama-3.2 will call these tools via function-calling — the full agent loop, in your tab, with no remote API key.
+A local LLM then calls these tools — the full agent loop, in your tab, with no remote API key. Pick the engine:
+
+- **Chrome built-in (Gemini Nano)** — via the [Prompt API](https://developer.mozilla.org/en-US/docs/Web/API/Prompt_API). Nothing to download and a turn takes well under a second, but it's Chrome 148+ on desktop only: there's no Chrome for Android support, and Mozilla and WebKit have both filed negative standards positions.
+- **[WebLLM](https://github.com/mlc-ai/web-llm) Llama-3.2-3B** — a ~2 GB one-time download onto WebGPU, cached afterwards. The portable fallback, and the only option outside Chrome.
+
+Either way the playground dispatches tools itself rather than using an engine's native tool-calling: that loop is where a consent gate and an audit record belong, and an engine that ran components internally would skip both.
 
 ## Run locally
 
