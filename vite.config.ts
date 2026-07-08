@@ -32,7 +32,7 @@ export default defineConfig({
   server: {
     port: 5173,
     fs: {
-      // @actcore/web-runtime is a linked dep (file:../host-browser) outside this
+      // @actcore/web-runtime is a linked dep (file:../web-runtime) outside this
       // project root. Its Web Worker entry (dist/transpile.worker.js) is fetched
       // by the browser at runtime, so the dev server must be allowed to serve
       // from the parent workspace dir. (Production `vite build` bundles the
