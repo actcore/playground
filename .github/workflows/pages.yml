@@ -25,13 +25,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: actcore/web-runtime
-          path: host-browser
+          path: web-runtime
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      # host-browser fetches its WIT deps with wkg (wit/deps is gitignored,
+      # web-runtime fetches its WIT deps with wkg (wit/deps is gitignored,
       # pinned by wkg.lock). Install the prebuilt binary — no Rust needed.
       - name: Install wkg
         run: |
@@ -40,7 +40,7 @@ jobs:
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
       - name: Build @actcore/web-runtime
-        working-directory: host-browser
+        working-directory: web-runtime
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -48,7 +48,7 @@ jobs:
           npm run sync-wit
           npm run build
 
-      - name: Install playground deps (resolves @actcore/web-runtime via file:../host-browser)
+      - name: Install playground deps (resolves @actcore/web-runtime via file:../web-runtime)
         working-directory: playground
         run: npm install
 
