@@ -3,7 +3,7 @@
  * arbitrary `File` objects for drag-and-drop.
  *
  * All paths converge on `Uint8Array` containing a packed wasm component,
- * which the caller hands to `@actcore/host`'s `runComponent`.
+ * which the caller hands to `@actcore/web-runtime`'s `runComponent`.
  */
 
 const OCI_CORS_PROXY = 'https://oci-cors.actcore.dev';

@@ -18,7 +18,7 @@
  * This works with any instruction-tuned model (Llama-3.2-1B and up). No
  * dependency on WebLLM's tool-list and no fragility around output format.
  */
-import type { ToolProvider, ToolDefinition } from '@actcore/host';
+import type { ToolProvider, ToolDefinition } from '@actcore/web-runtime';
 import { encodeCbor } from './cbor.js';
 import { getEngine } from './webllm.js';
 

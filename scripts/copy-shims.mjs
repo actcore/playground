@@ -2,7 +2,7 @@
 // Copy browser shim builds into public/ so Vite bundles them into the
 // production GH Pages output. Two sources:
 //   1. @bytecodealliance/preview2-shim → public/preview2-shim/
-//   2. @actcore/host's wasi:http p3 shim → public/host/shims/
+//   2. @actcore/web-runtime's wasi:http p3 shim → public/host/shims/
 // Transpiled wasm components reference both by absolute URL.
 
 import { mkdir, copyFile, readdir } from 'node:fs/promises';
@@ -32,7 +32,7 @@ await copyJs(
 );
 
 await copyJs(
-  join(root, 'node_modules/@actcore/host/dist/shims'),
+  join(root, 'node_modules/@actcore/web-runtime/dist/shims'),
   join(root, 'public/host/shims'),
   'host-shim',
 );

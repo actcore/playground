@@ -6,7 +6,7 @@ A browser-native AI agent stack. Paste a wasm component URL, the tool loads and 
 
 ## What this is
 
-A demonstration of [`@actcore/host`](https://github.com/actcore/host-browser) — a browser host for [ACT](https://actcore.dev) components. Each tool is a wasm component packed with `act-build`, distributed via an OCI registry, and signed by its author. The playground:
+A demonstration of [`@actcore/web-runtime`](https://github.com/actcore/web-runtime) — a browser host for [ACT](https://actcore.dev) components. Each tool is a wasm component packed with `act-build`, distributed via an OCI registry, and signed by its author. The playground:
 
 1. Resolves a URL (`oci://`, `https://`, or a dropped `.wasm` file).
 2. Pulls the bytes. Most OCI fetches go through [`oci-cors-proxy`](https://github.com/actcore/oci-cors-proxy) so the browser sees permissive CORS; registries that serve CORS themselves (e.g. [`actpkg.dev`](https://actpkg.dev)) are fetched directly.
@@ -19,11 +19,11 @@ In a follow-up iteration, a local [WebLLM](https://github.com/mlc-ai/web-llm) Ll
 
 ## Run locally
 
-This repo expects `actcore/host-browser` checked out as a sibling directory (the
-`@actcore/host` dependency is referenced via `file:../host-browser`).
+This repo expects `actcore/web-runtime` checked out as a sibling directory (the
+`@actcore/web-runtime` dependency is referenced via `file:../host-browser`).
 
 ```sh
-git clone https://github.com/actcore/host-browser ../host-browser
+git clone https://github.com/actcore/web-runtime ../host-browser
 # host-browser fetches its WIT deps with wkg (https://github.com/bytecodealliance/wasm-pkg-tools)
 cd ../host-browser && npm install && npm run sync-wit && npm run build
 cd -                                            # back to playground
@@ -35,7 +35,7 @@ npm run dev                                     # http://localhost:5173
 
 Pushed to `main` triggers `.github/workflows/pages.yml`, which:
 
-1. Builds `@actcore/host` from the sibling repo (PAT required, see workflow).
+1. Builds `@actcore/web-runtime` from the sibling repo (PAT required, see workflow).
 2. Builds the playground with Vite.
 3. Publishes to GitHub Pages.
 

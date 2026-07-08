@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 
-// @actcore/host imports jco's in-browser transpiler from the vendored,
+// @actcore/web-runtime imports jco's in-browser transpiler from the vendored,
 // componentized bindgen at this subpath. jco-transpile does not list `./vendor/*`
 // in its package `exports`, so Vite/Rollup's exports-respecting resolver can't
 // reach it — alias it to the concrete file. (jco's documented browser entry,
@@ -22,7 +22,7 @@ export default defineConfig({
     target: 'es2022',
     sourcemap: true,
   },
-  // @actcore/host runs jco's transpiler in a Web Worker (new Worker(..., {type:
+  // @actcore/web-runtime runs jco's transpiler in a Web Worker (new Worker(..., {type:
   // 'module'})). That worker code-splits (it dynamic-imports the bindgen core
   // wasm), which Rollup can't emit as the default `iife` worker format — it
   // requires ES modules. The worker is created with type:'module' anyway.
@@ -32,7 +32,7 @@ export default defineConfig({
   server: {
     port: 5173,
     fs: {
-      // @actcore/host is a linked dep (file:../host-browser) outside this
+      // @actcore/web-runtime is a linked dep (file:../host-browser) outside this
       // project root. Its Web Worker entry (dist/transpile.worker.js) is fetched
       // by the browser at runtime, so the dev server must be allowed to serve
       // from the parent workspace dir. (Production `vite build` bundles the
@@ -47,7 +47,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    // Bypass Vite's pre-bundling for @actcore/host so we can iterate on its
+    // Bypass Vite's pre-bundling for @actcore/web-runtime so we can iterate on its
     // source without `npm install`-rebuilding the dep cache.
     //
     // jco-transpile's vendored bindgen MUST also be excluded: it loads its core
@@ -57,6 +57,6 @@ export default defineConfig({
     // the HTML. Excluding it makes Vite serve the bindgen from its real
     // node_modules path, where the sibling .core.wasm files exist. (Dev only —
     // `vite build` bundles + emits these assets correctly.)
-    exclude: ['@actcore/host', '@bytecodealliance/jco-transpile'],
+    exclude: ['@actcore/web-runtime', '@bytecodealliance/jco-transpile'],
   },
 });

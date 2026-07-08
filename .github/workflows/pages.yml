@@ -24,7 +24,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: actcore/host-browser
+          repository: actcore/web-runtime
           path: host-browser
 
       - uses: actions/setup-node@v4
@@ -39,7 +39,7 @@ jobs:
           chmod +x "$RUNNER_TEMP/wkg"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
-      - name: Build @actcore/host
+      - name: Build @actcore/web-runtime
         working-directory: host-browser
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,7 +48,7 @@ jobs:
           npm run sync-wit
           npm run build
 
-      - name: Install playground deps (resolves @actcore/host via file:../host-browser)
+      - name: Install playground deps (resolves @actcore/web-runtime via file:../host-browser)
         working-directory: playground
         run: npm install
 

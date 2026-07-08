@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@actcore/host": "file:../host-browser",
+    "@actcore/web-runtime": "file:../host-browser",
     "@bytecodealliance/jco": "^1.24.3",
     "@bytecodealliance/jco-transpile": "^0.3.3",
     "@bytecodealliance/preview2-shim": "^0.19.0",

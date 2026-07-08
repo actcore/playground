@@ -33,7 +33,7 @@ import {
   exposeToWebmcp,
   isWebmcpAvailable,
   type WebmcpExposure,
-} from '@actcore/host';
+} from '@actcore/web-runtime';
 import { loadFromUrl, loadFromFile } from './url-loader.js';
 import { encodeCbor } from './cbor.js';
 
@@ -45,13 +45,13 @@ const SHIM_BASE_URL =
     ? location.origin + '/node_modules/@bytecodealliance/preview2-shim/dist/browser/'
     : location.origin + '/preview2-shim/';
 
-// Absolute URL of @actcore/host's wasi:http p3 shim. Implements the
+// Absolute URL of @actcore/web-runtime's wasi:http p3 shim. Implements the
 // wasi:http/{client,types}@0.3.x interfaces that wasip3 components import,
 // which preview2-shim's http.js does not cover. Copied alongside preview2-shim
 // by scripts/copy-shims.mjs at prebuild time.
 const WASI_HTTP_SHIM_URL =
   import.meta.env.DEV
-    ? location.origin + '/node_modules/@actcore/host/dist/shims/wasi-http.js'
+    ? location.origin + '/node_modules/@actcore/web-runtime/dist/shims/wasi-http.js'
     : location.origin + '/host/shims/wasi-http.js';
 
 const logEl = document.getElementById('log') as HTMLPreElement;
