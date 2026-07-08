@@ -133,7 +133,9 @@ async function loadFromBytes(bytes: Uint8Array, source: string) {
   });
   if (webmcpExposure.available) {
     const n = webmcpExposure.count;
-    webmcpStatusEl.textContent = `✓ ${n} tool${n === 1 ? '' : 's'} exposed to your browser agent on document.modelContext`;
+    webmcpStatusEl.textContent = n === 0
+      ? 'No tools exposed to your browser agent'
+      : `✓ ${n} tool${n === 1 ? '' : 's'} exposed to your browser agent on document.modelContext`;
     log(`WebMCP: ${n} tool${n === 1 ? '' : 's'} registered on document.modelContext`, 'ok');
   } else {
     webmcpStatusEl.textContent =
