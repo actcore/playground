@@ -540,9 +540,8 @@ chatForm.addEventListener('submit', async (e) => {
 // === JSPI gate =============================================================
 if (typeof (WebAssembly as unknown as { promising?: unknown }).promising !== 'function') {
   log(
-    'This browser lacks WebAssembly.promising (JSPI). Use Chrome 137+, Edge, ' +
-      'Firefox Nightly 152+, or Safari Tech Preview 243+. Stable Firefox/Safari ' +
-      'ship JSPI per Interop 2026 commitment.',
+    'This browser lacks WebAssembly.promising (JSPI). Use Chrome/Edge 137+ or ' +
+      'Firefox 153+. Safari ships JSPI per the Interop 2026 commitment.',
     'err',
   );
 } else {

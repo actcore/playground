@@ -43,7 +43,7 @@ Custom domain `playground.actcore.dev` set via `public/CNAME`.
 
 ## Browser support
 
-Requires JSPI. Chrome 137+ today; Firefox Nightly 152+ and Safari Tech Preview 243+ today. Stable Firefox/Safari shipping JSPI per Interop 2026.
+Requires JSPI, which is on by default in Chrome/Edge 137+ and Firefox 153+ (desktop and Android). Safari has it in Tech Preview and is committed to shipping under Interop 2026.
 
 ## License
 
